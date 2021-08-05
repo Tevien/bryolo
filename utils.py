@@ -119,7 +119,7 @@ def make_yolo_input(locs, boxes, outputdir, images=None):
     assert len(images) == 1 or len(images) == 3, "Either grayscale or RGB"
 
     df_locs = pd.read_csv(locs, sep="\t")
-    boxes = pd.read_excel(boxes)
+    boxes = pd.read_excel(boxes, engine="openpyxl")
 
     if not os.path.exists(outputdir):
         os.makedirs(outputdir)
@@ -133,9 +133,9 @@ def make_yolo_input(locs, boxes, outputdir, images=None):
         print(f"Processing patient: {patient}")
 
         #ONLY FOR TESTING **********************************
-        test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
-        if patient not in test_patients:
-            continue
+        #test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
+        #if patient not in test_patients:
+        #    continue
         #***************************************************
 
         # Find patient dicoms
