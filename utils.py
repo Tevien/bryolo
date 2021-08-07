@@ -119,7 +119,7 @@ def write_2d_box(_coords, _outname, _class):
     return True
 
 
-def make_yolo_input(locs, boxes, outputdir, images=None):
+def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
     assert images, "The column name of the dicom locations is required"
     assert len(images) == 1 or len(images) == 3, "Either grayscale or RGB"
 
@@ -137,11 +137,10 @@ def make_yolo_input(locs, boxes, outputdir, images=None):
         patient = b["Patient ID"]
         print(f"Processing patient: {patient}")
 
-        #ONLY FOR TESTING **********************************
-        test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
-        if patient not in test_patients:
-            continue
-        #***************************************************
+        if test:
+            test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
+            if patient not in test_patients:
+                continue
 
         # Find patient dicoms
         df_patient = apply(df_locs, filter_patient, patient)
