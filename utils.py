@@ -88,6 +88,8 @@ def make_dce_dataset(in_df, out_df):
 
         # Sort on Acquisition time
         df_subset.sort_values(by=["AcquisitionTime"], inplace=True)
+        df_subset.reset_index(drop=True, inplace=True)
+
         print("Selected scans:")
         print(df_subset[cols].head())
 
