@@ -101,7 +101,7 @@ def make_dce_dataset(in_df, out_df):
         for n in range(len(df_subset)):
             series_desc = df_subset.loc[n, "SeriesDescription"].replace(" ", "_")
             point[f"Image_{n}"] = '/'.join(df_subset.loc[n, "location"].split('/')[:-1])
-            point["seriesDesc"] = series_desc
+            point[f"seriesDesc_{n}"] = series_desc
         df = pd.DataFrame()
         df = df.append(point, ignore_index=True)
         df_out = pd.concat([df_out, df])
