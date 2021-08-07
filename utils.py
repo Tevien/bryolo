@@ -80,7 +80,6 @@ def make_dce_dataset(in_df, out_df):
     for combo, row in _g:
         print(f"processing {combo}")
         df_subset = df_in[(df_in["Patient"] == combo[0]) & (df_in["date"] == combo[1])]
-        print(df_subset[cols].head())
 
         # Remove non T1
         df_subset = apply(df_subset, filter_t1)
@@ -89,6 +88,8 @@ def make_dce_dataset(in_df, out_df):
 
         # Sort on Acquisition time
         df_subset.sort_values(by=["AcquisitionTime"], inplace=True)
+        print("Selected scans:")
+        print(df_subset[cols].head())
 
         # Create combo data point
         point = {
@@ -108,9 +109,13 @@ def make_dce_dataset(in_df, out_df):
 
 def write_2d_box(_coords, _outname, _class):
     assert len(_coords) == 4, "Provide [x_l, x_h, y_l, y_h]"
+    _coords = [float(c) for c in _coords]
     x_l, x_h, y_l, y_h = _coords
+
+    width = x_h-x_l
+    height = y_h-y_l
     with open(_outname, "a") as f:
-        f.write(f"{_class}\t{x_l}\t{y_l}\t{x_h-x_l}\t{y_h-y_l}")
+        f.write(f"{_class}\t{x_l}\t{y_l}\t{width}\t{height}\n")
     return True
 
 
@@ -133,9 +138,9 @@ def make_yolo_input(locs, boxes, outputdir, images=None):
         print(f"Processing patient: {patient}")
 
         #ONLY FOR TESTING **********************************
-        #test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
-        #if patient not in test_patients:
-        #    continue
+        test_patients = ["Breast_MRI_101", "Breast_MRI_103"]
+        if patient not in test_patients:
+            continue
         #***************************************************
 
         # Find patient dicoms
@@ -156,16 +161,23 @@ def make_yolo_input(locs, boxes, outputdir, images=None):
 
         # Output JPEGS
         pixels = [ni.load(n).dataobj for n in nii_names]
+        pixels = [np.array(p) for p in pixels]
+        pixels = [np.flip(p, 2) for p in pixels] # Annotations have slice axis reversed
         for _slice in range(np.array(pixels[0]).shape[2]):
+            out_name_i = lambda i: os.path.join(outputdir, f"{patient}_{_slice}_{i}.jpg")
             out_name = os.path.join(outputdir, f"{patient}_{_slice}.jpg")
             out_name_txt = os.path.join(outputdir, f"{patient}_{_slice}.txt")
-
             slices = [p[:, :, _slice] for p in pixels]
             if len(slices) == 1:
                 out_array = np.array(slices[0])
             else:
                 out_array = np.dstack(slices)
+
             cv2.imwrite(out_name, out_array)
+            #for i, a in zip(images, slices):
+            #    out_array = np.array(a)
+            #    cv2.imwrite(out_name_i(i), out_array)
+
 
             # Output txt file
             if _slice in range(s_l, s_h+1):
