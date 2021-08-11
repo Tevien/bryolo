@@ -10,5 +10,8 @@ if __name__ == '__main__':
     parse.add_argument('--output', default="test", type=str)
     args = parse.parse_args()
 
-    make_dce_dataset(args.processed, args.dce_dset)
-    make_yolo_input(args.dce_dset, args.boxes, args.output, ["Image_0", "Image_1", "Image_2"])
+    #make_dce_dataset(args.processed, args.dce_dset)
+    skipped = make_yolo_input(args.dce_dset, args.boxes, args.output, ["Image_0", "Image_1", "Image_2"])
+    with open("skipped.txt", "w") as f:
+        for s in skipped:
+            f.write(f"{s}\n")

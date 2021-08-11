@@ -59,7 +59,7 @@ if __name__ == '__main__':
         'Duration': [],
     }
 
-    patient_dir = "data"
+    patient_dir = args.input
     df_total = pd.DataFrame()
     patients = os.listdir(args.input)
 

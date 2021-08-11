@@ -6,6 +6,8 @@ import nibabel as ni
 import os
 import shutil
 
+pd.set_option('display.max_columns', None)
+
 '''
 cols = ['Unnamed: 0' 'Patient' 'date' 'location' 'SpecificCharacterSet'
  'ImageType' 'InstanceCreationDate' 'InstanceCreationTime' 'SOPClassUID'
@@ -41,7 +43,7 @@ cols = ['Unnamed: 0' 'Patient' 'date' 'location' 'SpecificCharacterSet'
 
 cols = [
     'SeriesDescription', 'AcquisitionTime', 'ScanningSequence',
-    'SequenceVariant', 'ScanOptions', 'MRAcquisitionType'
+    'SequenceVariant', 'ScanOptions', 'NumberOfAverages'
 ]
 
 
@@ -72,6 +74,23 @@ def filter_patient(x, _id):
         return False
 
 
+def filter_common(x, _col, _val):
+    if x[_col] == _val:
+        return True
+    else:
+        return False
+
+
+def apply_filter_common(_df, _col):
+    val = _df[_col].value_counts().idxmax()
+    _df = _df[_df.apply(filter_common, args=[_col, val], axis=1)]
+    #print(val)
+    #print(_df.head())
+    _df.reset_index(drop=True, inplace=True)
+    return _df
+    
+
+
 def make_dce_dataset(in_df, out_df):
     df_in = pd.read_csv(in_df, sep="\t")
     df_out = pd.DataFrame()
@@ -85,6 +104,10 @@ def make_dce_dataset(in_df, out_df):
         df_subset = apply(df_subset, filter_t1)
         # Remove non-3D
         df_subset = apply(df_subset, filter_3d)
+        # Same numbr of averages
+        df_subset = apply_filter_common(df_subset, 'NumberOfAverages')
+        # Same scan options
+        df_subset = apply_filter_common(df_subset, 'ScanOptions')
 
         # Sort on Acquisition time
         df_subset.sort_values(by=["AcquisitionTime"], inplace=True)
@@ -109,13 +132,16 @@ def make_dce_dataset(in_df, out_df):
     return df_out
 
 
-def write_2d_box(_coords, _outname, _class):
+def write_2d_box(_coords, _outname, _class, size=448):
     assert len(_coords) == 4, "Provide [x_l, x_h, y_l, y_h]"
     _coords = [float(c) for c in _coords]
     x_l, x_h, y_l, y_h = _coords
 
-    width = x_h-x_l
-    height = y_h-y_l
+    width = (x_h-x_l)/size
+    height = (y_h-y_l)/size
+
+    x_l = x_l/size
+    y_l = y_l/size
     with open(_outname, "a") as f:
         f.write(f"{_class}\t{x_l}\t{y_l}\t{width}\t{height}\n")
     return True
@@ -134,6 +160,8 @@ def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
     temp_dir = os.path.join(outputdir, "temp")
     os.makedirs(temp_dir, exist_ok=True)
 
+    skipped = []
+
     print(boxes.head())
     for i, b in boxes.iterrows():
         patient = b["Patient ID"]
@@ -151,14 +179,23 @@ def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
         x_l, x_h, c_l, c_h, s_l, s_h = b["Start Row"], b["End Row"], b["Start Column"], \
                                        b["End Column"], b["Start Slice"], b["End Slice"]
 
+        skip = False
         # Make nii
         nii_names = []
         for i in images:
             dicom_folder = df_patient.loc[0, i]
             nii_name = os.path.join(temp_dir, f"{patient}_{i}.nii.gz")
             if not os.path.exists(nii_name):
-                dicom2nifti.dicom_series_to_nifti(dicom_folder, nii_name, reorient_nifti=False)
+                try:
+                    dicom2nifti.dicom_series_to_nifti(dicom_folder, nii_name, reorient_nifti=False)
+                except TypeError:
+                    print(f"Skipping: {patient}, not enough images")
+                    skip = True
+                    skipped.append(patient)
+                    break
             nii_names.append(nii_name)
+        if skip:
+            continue
 
         # Output JPEGS
         pixels = [ni.load(n).dataobj for n in nii_names]
@@ -184,5 +221,5 @@ def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
             if _slice in range(s_l, s_h+1):
                 write_2d_box([x_l, x_h, c_l, c_h], out_name_txt, 0)
 
-    shutil.rmtree(temp_dir, ignore_errors=True)
-    return True
+    #shutil.rmtree(temp_dir, ignore_errors=True)
+    return skipped
