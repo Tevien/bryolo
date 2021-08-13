@@ -163,7 +163,7 @@ def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
     skipped = []
 
     print(boxes.head())
-    for i, b in boxes.iterrows():
+    for _, b in boxes.iterrows():
         patient = b["Patient ID"]
         print(f"Processing patient: {patient}")
 
@@ -223,3 +223,45 @@ def make_yolo_input(locs, boxes, outputdir, images=None, test=False):
 
     #shutil.rmtree(temp_dir, ignore_errors=True)
     return skipped
+
+
+def make_yolo_inf(locs, outputdir, images=None):
+    assert images, "The column name of the dicom locations is required"
+    assert len(images) == 1 or len(images) == 3, "Either grayscale or RGB"
+
+    df_locs = pd.read_csv(locs, sep="\t")
+
+    if not os.path.exists(outputdir):
+        os.makedirs(outputdir)
+
+    for _, p in df_locs.iterrows():
+        skip = False
+        nii_names = []
+        patient = p["Patient"]
+        for i in images:
+            dicom_folder = df_locs.loc[0, i]
+            nii_name = os.path.join(outputdir, f"{patient}_{i}.nii.gz")
+            if not os.path.exists(nii_name):
+                try:
+                    dicom2nifti.dicom_series_to_nifti(dicom_folder, nii_name, reorient_nifti=False)
+                except TypeError:
+                    print(f"Skipping: {patient}, not enough images")
+                    skip = True
+                    break
+            nii_names.append(nii_name)
+        if skip:
+            continue
+
+        # Output JPEGS
+        pixels = [ni.load(n).dataobj for n in nii_names]
+        pixels = [np.array(p) for p in pixels]
+        pixels = [np.flip(p, 2) for p in pixels] # Annotations have slice axis reversed
+        for _slice in range(np.array(pixels[0]).shape[2]):
+            out_name = os.path.join(outputdir, f"{patient}_{_slice}.jpg")
+            slices = [p[:, :, _slice] for p in pixels]
+            if len(slices) == 1:
+                out_array = np.array(slices[0])
+            else:
+                out_array = np.dstack(slices)
+
+            cv2.imwrite(out_name, out_array)
