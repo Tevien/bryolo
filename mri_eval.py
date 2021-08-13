@@ -1,4 +1,4 @@
-import argparse
+import argparse, os
 from pathlib import Path
 from utils.utils import make_yolo_inf
 import torch
@@ -73,11 +73,11 @@ def main(weights='yolov5s.pt',  # model.pt path(s) ###
             p, s, im0, frame = path, '', im0s.copy(), getattr(dataset, 'frame', 0)
 
             p = Path(p)  # to Path
-            save_path = str(save_dir / p.name)  # img.jpg
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+            #save_path = os.path.join(save_dir, p.name)  # img.jpg
+            txt_path = os.path.join(save_dir, 'labels', p.stem)
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-            imc = im0
+            #imc = im0
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
