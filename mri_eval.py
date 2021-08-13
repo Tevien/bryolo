@@ -11,10 +11,10 @@ from utils.torch_utils import select_device
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/DATA/sb/BREAST/yolov5/runs/train/exp3/weights/best.pt', help='model.pt path(s)')
     parser.add_argument('--save_dir', nargs='+', type=str, default='yolo_valid_output', help='Saving output')
     parser.add_argument('--dicom_df', nargs='+', type=str, default='processed_valid.csv', help='Location of valid dicoms')
-    parser.add_argument('--source', type=str, default='data/images', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--jpg_loc', type=str, default='yolo_valid', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=448, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
@@ -31,7 +31,7 @@ def parse_opt():
 
 def main(weights='yolov5s.pt',  # model.pt path(s) ###
          dicom_df="processed_valid.csv", ###
-         source='yolo_valid',  # file/dir/URL/glob, 0 for webcam ###
+         jpg_loc='yolo_valid',  # file/dir/URL/glob, 0 for webcam ###
          imgsz=448,  # inference size (pixels) ###
          conf_thres=0.25,  # confidence threshold ###
          iou_thres=0.45,  # NMS IOU threshold ###
@@ -44,7 +44,7 @@ def main(weights='yolov5s.pt',  # model.pt path(s) ###
          visualize=False  # visualize features ###
          ):
     # Make the image directory
-    make_yolo_inf(dicom_df, source)
+    make_yolo_inf(dicom_df, jpg_loc)
 
     device = select_device(device)
 
@@ -54,7 +54,7 @@ def main(weights='yolov5s.pt',  # model.pt path(s) ###
     stride = int(model.stride.max())  # model stride
     names = model.module.names if hasattr(model, 'module') else model.names  # get class names
 
-    dataset = LoadImages(source, img_size=imgsz, stride=stride)
+    dataset = LoadImages(jpg_loc, img_size=imgsz, stride=stride)
     bs = 1  # batch_size
 
     model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
