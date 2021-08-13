@@ -43,7 +43,7 @@ def main(weights='yolov5s.pt',  # model.pt path(s) ###
          visualize=False  # visualize features ###
          ):
     # Make the image directory
-    make_yolo_inf(dicom_df, source)
+    make_yolo_inf(dicom_df, source, images=["Image_0", "Image_1", "Image_2"])
 
     device = select_device(device)
 
