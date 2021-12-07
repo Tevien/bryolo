@@ -9,7 +9,6 @@ DEFAULT_DATE = datetime(2013, 1, 1)
 
 '''
 # ASSUMPTIONS
-- DICOM files are in the format XXX-NUMBER.dcm
 - The first directory contains patients
 '''
 
@@ -25,19 +24,35 @@ def valid_dates(dateStr):
     return dates
 
 
+def read_header(_f):
+    # Try to read header, returns 1000 if not a dicom,
+    # otherwise returns the sequence in the scan
+    try:
+        dcm = pydicom.read_file(_f)
+        try:
+            print(dcm["Acquisition Number"])
+        except:
+            print("DICOM DOES NOT HAVE ACQUISITION NUMBER IN HEADER")
+            return 1000
+    except:
+        return 1000
+
+
 def in_dicom_dir(_dir):
     _files = os.listdir(_dir)
 
     ret_val = False
     file = ""
+    if len(_files) < 10:
+        return ret_val, file
     for f in _files:
-        if f[-4:] == '.dcm':
+        pos = read_header(f)
+        if pos < 1000:
             ret_val = True
+            if pos == 1:
+                file = f
             break
-    if ret_val:
-        nums = [(_f.split(".")[0]).split("-")[-1] for _f in _files]
-        nums.sort()
-        file = f'{"-".join(_files[0].split("-")[:-1])}-{nums[0]}.dcm'
+    assert file, "First slice not found"
     return ret_val, file
 
 
