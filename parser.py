@@ -21,21 +21,34 @@ def valid_dates(dateStr):
             dates.append(_date)
         except ValueError:
             pass
+    if not dates:
+        for match in re.finditer(r"(?<!\d)\d{8}(?!\d)", dateStr):
+            _date = datetime.strptime(match.group(0), "%Y%m%d")
+            dates.append(_date)
     return dates
 
 
-def read_header(_f):
+def read_breast_mr_header(_f):
     # Try to read header, returns 1000 if not a dicom,
     # otherwise returns the sequence in the scan
+    _file = _f.split("/")[-1]
     try:
-        dcm = pydicom.read_file(_f)
-        try:
-            print(dcm["Acquisition Number"])
-        except:
-            print("DICOM DOES NOT HAVE ACQUISITION NUMBER IN HEADER")
-            return 1000
+        ds = pydicom.filereader.dcmread(_f)
     except:
-        return 1000
+        # not a dicom
+        return
+
+    if not ds['0008', '0060'].value == 'MR':
+        return
+
+    # Check that body part is breast
+    if not ds['0018', '0015'].value == 'BREAST':
+        return
+
+    loc = ds['0020', '1041'].value
+    #print(_f)
+    #print(loc)
+    return loc
 
 
 def in_dicom_dir(_dir):
@@ -45,14 +58,16 @@ def in_dicom_dir(_dir):
     file = ""
     if len(_files) < 10:
         return ret_val, file
-    for f in _files:
-        pos = read_header(f)
-        if pos < 1000:
+    #print(_dir)
+    for f in _files[:1]:
+        pos = read_breast_mr_header(os.path.join(_dir, f))
+        if pos:
+            print(f"{f}_{pos}")
             ret_val = True
-            if pos == 1:
-                file = f
+            file = f
             break
-    assert file, "First slice not found"
+    if ret_val:
+        assert file, "First slice not found"
     return ret_val, file
 
 
@@ -77,14 +92,18 @@ if __name__ == '__main__':
     patient_dir = args.input
     df_total = pd.DataFrame()
     patients = os.listdir(args.input)
+    skipped = []
+    fixed_keys = None
 
-    for p in patients:
+    for p in patients[:3]:
+        success = False
         for root, dirs, files in os.walk(os.path.join(patient_dir, p)):
             for d in dirs:
                 _dicoms, _first = in_dicom_dir(os.path.join(root, d))
                 if not _dicoms:
                     continue
                 else:
+                    success = True
                     print(f"{root} &&& {d} &&& {_first}")
 
                 # Found data point
@@ -96,7 +115,7 @@ if __name__ == '__main__':
 
                 path_to_dir = os.path.join(root, d)
                 dates = valid_dates(str(path_to_dir).replace("/", " ").replace("MRI", " "))
-                assert len(dates) == 1, "Need to do more refining"
+                assert len(dates) == 1, f"Need to do more refining, {dates}"
                 date = dates[0]
                 point["date"] = date.strftime("%m/%d/%Y")
                 point["location"] = full_loc
@@ -106,13 +125,22 @@ if __name__ == '__main__':
 
                 # Remove pixel data key
                 keys = list(ds.keys())[:-1]
+                if not fixed_keys:
+                    fixed_keys = [k for k in keys if k.group<2000]
 
                 # Add info to data point
-                for k in keys:
-                    v = ds[k]
+                for k in fixed_keys:
+                    try:
+                        v = ds[k]
+                    except:
+                        print(fixed_keys)
+                        v = ds[k]
 
                     point[v.keyword] = v.value
                 df = pd.DataFrame()
                 df = df.append(point, ignore_index=True)
-                df_total = pd.concat([df_total, df])
+                df_total = pd.concat([df_total, df], axis=1)
+        if not success:
+            skipped.append(p)
+    print(f"Skipped: {skipped}")
     df_total.to_csv(args.output, sep="\t")
