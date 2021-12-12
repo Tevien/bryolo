@@ -137,8 +137,8 @@ if __name__ == '__main__':
                         v = ds[k]
 
                     point[v.keyword] = v.value
-                df = pd.DataFrame()
-                df = df.append(point, ignore_index=True)
+                df = pd.DataFrame.from_dict(point)
+                #df_total = df_total.append(df, ignore_index=True)
                 df_total = pd.concat([df_total, df], axis=1)
         if not success:
             skipped.append(p)
