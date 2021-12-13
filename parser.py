@@ -40,12 +40,15 @@ def read_breast_mr_header(_f):
         # not a dicom
         return
 
-    if not ds['0008', '0060'].value == 'MR':
-        return
+    try:
+        if not ds['0008', '0060'].value == 'MR':
+            return
 
-    # Check that body part is breast
-    if not ds['0018', '0015'].value == 'BREAST':
-        return
+        # Check that body part is breast
+        if not ds['0018', '0015'].value == 'BREAST':
+            return
+    except KeyError:
+        logging.error(f"Failed at {_f}")
 
     try:
         loc = ds['0020', '1041'].value
