@@ -10,6 +10,23 @@ parse.add_argument('--input', default="processed.csv", type=str)
 parse.add_argument('--output', default="processed_scantype.csv", type=str)
 args = parse.parse_args()
 
+def desc_process(_desc):
+    scan_type = ""
+    if "sinwas" in _desc.lower():
+        scan_type = "INWASH"
+    elif "suitwas" in _desc.lower():
+        scan_type = "OUTWASH"
+    elif "perfus" in _desc.lower():
+        scan_type = "4DPERFUSION"
+    elif "tfe" in _desc.lower():
+        scan_type = "TFE"
+    elif "adc" in _desc.lower():
+        scan_type = "ADC"
+    elif "dwi" in _desc.lower():
+        scan_type = "DWI"
+
+    return scan_type
+
 
 def sort_scan(_row):
     scan_type = ''
@@ -18,23 +35,31 @@ def sort_scan(_row):
     # T1: <50ms
     # DWI: 50-90ms
     # T2: >90ms
-    t_echo = float(_row["Echo Time"])
+    t_echo = float(_row["EchoTime"])
     # Contrast
-    contrast = _row["Contrast/Bolus Agent"]
+    contrast = _row["ContrastBolusAgent"]
     # DWI has non-zero b value
     bval = float(_row["DiffusionBValue"])
     # ADC has DWI-like TE
     # Perfusion has more than 1 temporal positions
     # but is otherwise like T1
-    num_times = int(_row["Number of Temporal Positions"])
+    num_times = _row["NumberOfTemporalPositions"]
+    if num_times == num_times:
+        num_times = int(num_times)
     # Inwash looks like T1+C
     # Outwash has trigger time >300000
-    trigger = float(_row["Trigger Time"])
-    desc = _row["Series Description"]
+    trigger = _row["TriggerTime"]
+    try:
+        trigger = float(trigger)
+    except:
+        trigger = -1.0
+    desc = _row["SeriesDescription"]
+    dp = desc_process(desc)
 
     # Logic:
     if t_echo < 50.0:
-        if not contrast:
+        # Contrast tag is empty in the PACS scang
+        if trigger<0.5:
             scan_type = "T1"
         else:
             # Now sort inwash/outwash/perfusion/T1+C
@@ -43,8 +68,8 @@ def sort_scan(_row):
             if trigger > 300000:
                 scan_type = "OUTWASH"
 
-            if "sinwas" in desc.lower():
-                scan_type = "INWASH"
+            if dp:
+                scan_type = dp
             else:
                 scan_type = "T1+C"
     elif t_echo < 90.0:
@@ -53,11 +78,22 @@ def sort_scan(_row):
 
         if bval:
             scan_type = "DWI"
-        scan_type = "UNKNOWN"
+        elif dp:
+            scan_type = dp
+        else:
+            scan_type = "UNKNOWN"
     elif t_echo > 89.9:
-        scan_type = "T2"
+        if dp:
+            scan_type = dp
+        else:
+            scan_type = "T2"
     else:
-        scan_type = "UNKNOWN"
+        if dp:
+            scan_type = dp
+        else:
+            scan_type = "UNKNOWN"
+
+    return scan_type
 
 
 df_total = pd.read_csv(args.input, sep="\t")
