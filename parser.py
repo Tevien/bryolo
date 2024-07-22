@@ -104,7 +104,7 @@ if __name__ == '__main__':
     skipped = []
     fixed_keys = None
 
-    for p in patients:
+    for p in patients[:3]:
         success = False
         for root, dirs, files in os.walk(os.path.join(patient_dir, p)):
             for d in dirs:
@@ -147,7 +147,8 @@ if __name__ == '__main__':
                     if type(v.value) is pydicom.sequence.Sequence:
                         #print(f"SEQUENCE FOUND - {v.keyword}")
                         continue
-                    point[v.keyword] = [str(v.value)]
+                    #point[v.keyword] = [str(v.value)]
+                    point[f"{v.tag.elem}_{v.tag.group}"] = [str(v.value)]
                     #print(f"ADDING: {v.keyword} - {str(v.value)}")
                 df = pd.DataFrame.from_dict(point)
                 #df_total = df_total.append(df, ignore_index=True)
